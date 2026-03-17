@@ -2,8 +2,6 @@
 
 This project is a role-based food ordering backend built with NestJS, GraphQL, Prisma, and PostgreSQL.
 
-
-
 ## Tech Stack
 
 - NestJS 11
@@ -20,9 +18,6 @@ This project is a role-based food ordering backend built with NestJS, GraphQL, P
 - `src/prisma` - Prisma service (Postgres adapter)
 - `prisma/schema.prisma` - data model and enums
 - `prisma/seed.ts` - sample data for testing
-
-
-
 
 ## Authorization Rules
 
@@ -54,7 +49,6 @@ This project is a role-based food ordering backend built with NestJS, GraphQL, P
 
 - `updatePaymentMethod`
   - `ADMIN` only (guard-level + service-level check)
-
 
 ## Environment Variables
 
@@ -119,9 +113,154 @@ GraphQL Playground:
 
 ## GraphQL API
 
-### Auth
+Base URL (GraphQL endpoint):
 
-`register(input: RegisterInput!): AuthResponse!`
+- `http://localhost:3000/graphql`
+
+Auth header for protected operations:
+
+- `Authorization: Bearer <access_token>`
+
+### Types
+
+#### AuthResponse
+
+- `access_token: String!`
+
+#### Restaurant
+
+- `id: ID!`
+- `name: String!`
+- `menu: [MenuItem!]!`
+
+#### MenuItem
+
+- `id: ID!`
+- `name: String!`
+- `price: Float!`
+
+#### Order
+
+- `id: ID!`
+- `country: String!` (enum value stored as string: `INDIA`, `USA`)
+- `status: String!` (`CREATED`, `PLACED`, `CANCELLED`)
+- `items: [OrderItem!]!`
+
+#### OrderItem
+
+- `id: String!`
+- `quantity: Int!`
+- `menu: MenuItem!`
+
+#### PaymentMethod
+
+- `id: ID!`
+- `type: String!`
+- `details: String!`
+- `userId: String!`
+
+### Inputs
+
+#### RegisterInput
+
+- `name: String!`
+- `email: String!`
+- `password: String!`
+- `role: String!` (use one of: `ADMIN`, `MANAGER`, `MEMBER`)
+- `country: String!` (use one of: `INDIA`, `USA`)
+
+#### LoginInput
+
+- `email: String!`
+- `password: String!`
+
+#### UpdatePaymentInput
+
+- `paymentMethodId: ID!`
+- `type: String!`
+- `details: String!`
+
+### Queries
+
+#### `getRestaurant: [Restaurant!]!`
+
+- Access: `ADMIN`, `MANAGER`, `MEMBER`
+- Behavior:
+  - `ADMIN` sees all restaurants
+  - `MANAGER` / `MEMBER` see only restaurants in their own country
+
+Example:
+
+```graphql
+query GetRestaurant {
+  getRestaurant {
+    id
+    name
+    menu {
+      id
+      name
+      price
+    }
+  }
+}
+```
+
+#### `myOrders: [Order!]!`
+
+- Access: `ADMIN`, `MANAGER`, `MEMBER`
+- Behavior:
+  - `ADMIN` sees all orders
+  - `MANAGER` sees all orders in own country
+  - `MEMBER` sees only own orders (country-scoped)
+
+Example:
+
+```graphql
+query MyOrders {
+  myOrders {
+    id
+    country
+    status
+    items {
+      id
+      quantity
+      menu {
+        id
+        name
+        price
+      }
+    }
+  }
+}
+```
+
+#### `myPaymentMethods: [PaymentMethod!]!`
+
+- Access: `ADMIN`, `MANAGER`, `MEMBER`
+- Behavior: returns only payment methods owned by the authenticated user
+
+Example:
+
+```graphql
+query MyPaymentMethods {
+  myPaymentMethods {
+    id
+    type
+    details
+    userId
+  }
+}
+```
+
+### Mutations
+
+#### `register(input: RegisterInput!): AuthResponse!`
+
+- Public endpoint (no token required)
+- Returns JWT access token
+- Common error: email already exists
+
+Example:
 
 ```graphql
 mutation Register {
@@ -139,7 +278,13 @@ mutation Register {
 }
 ```
 
-`login(input: LoginInput!): AuthResponse!`
+#### `login(input: LoginInput!): AuthResponse!`
+
+- Public endpoint (no token required)
+- Returns JWT access token
+- Common error: invalid credentials
+
+Example:
 
 ```graphql
 mutation Login {
@@ -149,20 +294,102 @@ mutation Login {
 }
 ```
 
-Use `Authorization: Bearer <token>` for protected queries/mutations.
+#### `createOrder(menuItemIds: [ID!]!, quantity: Float!): Order!`
 
-### Restaurants
+- Access: `ADMIN`, `MANAGER`, `MEMBER`
+- Behavior:
+  - Creates an order for the current user
+  - Order country is auto-assigned from user country
+  - Initial status is `CREATED`
+  - Creates one order item per provided menu item id using the same quantity
+- Note: schema exposes `quantity` as `Float`, but order items store quantity as integer; send whole numbers
+
+Example:
 
 ```graphql
-query GetRestaurant {
-  getRestaurant {
+mutation CreateOrder {
+  createOrder(menuItemIds: ["menu-item-id-1", "menu-item-id-2"], quantity: 2) {
     id
-    name
-    menu {
+    country
+    status
+    items {
       id
-      name
-      price
+      quantity
+      menu {
+        id
+        name
+      }
     }
+  }
+}
+```
+
+#### `placeOrder(orderId: ID!): Order!`
+
+- Access: `ADMIN`, `MANAGER`
+- Behavior:
+  - Changes order status to `PLACED`
+  - `MANAGER` can only place orders from own country
+- Common errors:
+  - order not found
+  - trying to access order from another country
+  - order already placed / cancelled
+
+Example:
+
+```graphql
+mutation PlaceOrder {
+  placeOrder(orderId: "order-id") {
+    id
+    status
+  }
+}
+```
+
+#### `cancelOrder(orderId: ID!): Order!`
+
+- Access: `ADMIN`, `MANAGER`
+- Behavior:
+  - Changes order status to `CANCELLED`
+  - `MANAGER` can only cancel orders from own country
+- Common errors:
+  - order not found
+  - trying to access order from another country
+  - order already cancelled
+
+Example:
+
+```graphql
+mutation CancelOrder {
+  cancelOrder(orderId: "order-id") {
+    id
+    status
+  }
+}
+```
+
+#### `updatePaymentMethod(input: UpdatePaymentInput!): PaymentMethod!`
+
+- Access: `ADMIN` only
+- Behavior: updates payment method `type` and `details` by id
+- Common errors:
+  - payment method not found
+  - non-admin user access denied
+
+Example:
+
+```graphql
+mutation UpdatePaymentMethod {
+  updatePaymentMethod(
+    input: {
+      paymentMethodId: "payment-id"
+      type: "CARD"
+      details: "**** **** **** 4242"
+    }
+  ) {
+    id
+    type
+    details
   }
 }
 ```
@@ -183,4 +410,3 @@ Sample seeded users:
 
 - GraphQL schema is auto-generated to `schema.gql`.
 - Input validation is enabled globally using `ValidationPipe`.
-
