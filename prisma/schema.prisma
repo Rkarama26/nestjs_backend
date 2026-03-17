@@ -1,0 +1,91 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  MEMBER
+}
+
+enum Country {
+  INDIA
+  USA
+}
+
+enum OrderStatus {
+  CREATED
+  PLACED
+  CANCELLED
+}
+
+model User {
+  id       String  @id @default(uuid())
+  name     String
+  email    String  @unique
+  password String
+  role     Role
+  country  Country
+
+  // order to be added
+  orders         Order[]
+  paymentMethods PaymentMethod[]
+}
+
+model Restaurant {
+  id      String     @id @default(uuid())
+  name    String
+  // country to be added 
+  country Country
+  menu    MenuItem[]
+}
+
+model MenuItem {
+  id           String @id @default(uuid())
+  name         String
+  price        Float
+  restaurantId String
+
+  restaurant Restaurant  @relation(fields: [restaurantId], references: [id])
+  orderItems OrderItem[]
+}
+
+model Order {
+  id        String      @id @default(uuid())
+  userId    String
+  country   Country
+  status    OrderStatus
+  createdAt DateTime    @default(now())
+
+  user  User        @relation(fields: [userId], references: [id])
+  items OrderItem[]
+}
+
+model OrderItem {
+  id       String   @id @default(uuid())
+  orderId  String
+  menuId   String
+  quantity Int
+  order    Order    @relation(fields: [orderId], references: [id])
+  menu     MenuItem @relation(fields: [menuId], references: [id])
+}
+
+model PaymentMethod {
+  id      String @id @default(uuid())
+  userId  String
+  type    String
+  details String
+
+  user User @relation(fields: [userId], references: [id])
+}

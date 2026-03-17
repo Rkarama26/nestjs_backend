@@ -1,0 +1,58 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type AuthResponse {
+  access_token: String!
+}
+
+type MenuItem {
+  id: ID!
+  name: String!
+  price: Float!
+}
+
+type Restaurant {
+  id: ID!
+  name: String!
+  menu: [MenuItem!]!
+}
+
+type OrderItem {
+  id: String!
+  quantity: Int!
+  menu: MenuItem!
+}
+
+type Order {
+  id: ID!
+  country: String!
+  status: String!
+  items: [OrderItem!]!
+}
+
+type Query {
+  getRestaurant: [Restaurant!]!
+  myOrders: [Order!]!
+}
+
+type Mutation {
+  register(input: RegisterInput!): AuthResponse!
+  login(input: LoginInput!): AuthResponse!
+  createOrder(menuItemIds: [ID!]!, quantity: Float!): Order!
+  placeOrder(orderId: ID!): Order!
+  cancelOrder(orderId: ID!): Order!
+}
+
+input RegisterInput {
+  name: String!
+  email: String!
+  password: String!
+  role: String!
+  country: String!
+}
+
+input LoginInput {
+  email: String!
+  password: String!
+}
