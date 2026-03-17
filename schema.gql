@@ -31,9 +31,17 @@ type Order {
   items: [OrderItem!]!
 }
 
+type PaymentMethod {
+  id: ID!
+  type: String!
+  details: String!
+  userId: String!
+}
+
 type Query {
   getRestaurant: [Restaurant!]!
   myOrders: [Order!]!
+  myPaymentMethods: [PaymentMethod!]!
 }
 
 type Mutation {
@@ -42,6 +50,7 @@ type Mutation {
   createOrder(menuItemIds: [ID!]!, quantity: Float!): Order!
   placeOrder(orderId: ID!): Order!
   cancelOrder(orderId: ID!): Order!
+  updatePaymentMethod(input: UpdatePaymentInput!): PaymentMethod!
 }
 
 input RegisterInput {
@@ -55,4 +64,10 @@ input RegisterInput {
 input LoginInput {
   email: String!
   password: String!
+}
+
+input UpdatePaymentInput {
+  paymentMethodId: ID!
+  type: String!
+  details: String!
 }
